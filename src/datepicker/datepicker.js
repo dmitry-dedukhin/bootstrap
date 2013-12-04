@@ -417,7 +417,13 @@ function ($compile, $parse, $document, $position, dateFilter, datepickerPopupCon
       function updatePosition() {
         scope.position = appendToBody ? $position.offset(element) : $position.position(element);
         scope.position.top = scope.position.top + element.prop('offsetHeight');
+        var bodyWidth = angular.element($document[0].body).prop('offsetWidth');
+        var popupWidth = popupEl.prop('offsetWidth');
+        if (scope.position.left + popupWidth > bodyWidth) {
+          scope.position.left = bodyWidth - popupWidth;
+        }
       }
+      scope.$watch(updatePosition);
 
       var documentBindingInitialized = false, elementFocusInitialized = false;
       scope.$watch('isOpen', function(value) {
