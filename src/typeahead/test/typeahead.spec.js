@@ -60,7 +60,6 @@ describe('typeahead tests', function () {
     var e = $.Event("keydown");
     e.which = keyCode;
     inputEl.trigger(e);
-    return e;
   };
 
   //custom matchers
@@ -439,13 +438,6 @@ describe('typeahead tests', function () {
       expect($scope.isLoading).toBeFalsy();
     });
 
-    it('pr 1165 - prevent default on ENTER to avoid accidental form submission', function () {
-      var element = prepareInputEl("<div><input ng-model='result' typeahead='item for item in source | filter:$viewValue'></div>");
-      var e = triggerKeyDown(element, 13);
-
-      expect(e.isDefaultPrevented()).toBeTruthy();
-    });
-
     it('does not close matches popup on click in input', function () {
       var element = prepareInputEl("<div><input ng-model='result' typeahead='item for item in source | filter:$viewValue'></div>");
       var inputEl = findInput(element);
@@ -500,6 +492,18 @@ describe('typeahead tests', function () {
 
       expect(inputEl.val()).toEqual('AL');
       expect($scope.result).toEqual($scope.states[0]);
+    });
+
+
+  });
+
+  describe('append to body', function () {
+
+    it('append typeahead results to body', function () {
+      var element = prepareInputEl("<div><input ng-model='result' typeahead='item for item in source | filter:$viewValue' typeahead-append-to-body='true'></div>");
+      changeInputValueTo(element, 'ba');
+      expect($document.find('body')).toBeOpenWithActive(2, 0);
+
     });
   });
 

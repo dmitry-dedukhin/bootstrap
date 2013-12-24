@@ -88,6 +88,7 @@ describe('$modal', function () {
     var body = $document.find('body');
     body.find('div.modal').remove();
     body.find('div.modal-backdrop').remove();
+    body.removeClass('modal-open');
   });
 
   function open(modalOptions) {
@@ -374,6 +375,22 @@ describe('$modal', function () {
         expect($document).toHaveModalOpenWithContent('Static backdrop', 'div');
         expect($document).toHaveBackdrop();
       });
+
+      it('should animate backdrop on each modal opening', function () {
+
+        var modal = open({ template: '<div>With backdrop</div>' });
+        var backdropEl = $document.find('body > div.modal-backdrop');
+        expect(backdropEl).not.toHaveClass('in');
+
+        $timeout.flush();
+        expect(backdropEl).toHaveClass('in');
+
+        dismiss(modal);
+        modal = open({ template: '<div>With backdrop</div>' });
+        backdropEl = $document.find('body > div.modal-backdrop');
+        expect(backdropEl).not.toHaveClass('in');
+
+      });
     });
 
     describe('custom window classes', function () {
@@ -434,6 +451,24 @@ describe('$modal', function () {
       $rootScope.$digest();
 
       expect($document).toHaveBackdrop();
+    });
+
+    it('should add "modal-open" class when a modal gets opened', function () {
+
+      var body = $document.find('body');
+      expect(body).not.toHaveClass('modal-open');
+
+      var modal1 = open({template: '<div>Content1</div>'});
+      expect(body).toHaveClass('modal-open');
+
+      var modal2 = open({template: '<div>Content1</div>'});
+      expect(body).toHaveClass('modal-open');
+
+      dismiss(modal1);
+      expect(body).toHaveClass('modal-open');
+
+      dismiss(modal2);
+      expect(body).not.toHaveClass('modal-open');
     });
   });
 });

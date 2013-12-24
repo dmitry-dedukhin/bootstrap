@@ -217,7 +217,7 @@ angular.module('ui.bootstrap.datepicker', ['ui.bootstrap.position'])
 
       scope.select = function( date ) {
         if ( mode === 0 ) {
-          var dt = new Date( ngModel.$modelValue );
+          var dt = ngModel.$modelValue ? new Date( ngModel.$modelValue ) : new Date(0, 0, 0, 0, 0, 0, 0);
           dt.setFullYear( date.getFullYear(), date.getMonth(), date.getDate() );
           ngModel.$setViewValue( dt );
           refill( true );
@@ -367,7 +367,10 @@ function ($compile, $parse, $document, $position, dateFilter, datepickerPopupCon
       ngModel.$parsers.unshift(parseDate);
 
       // Inner change
-      scope.dateSelection = function() {
+      scope.dateSelection = function(dt) {
+        if (angular.isDefined(dt)) {
+          scope.date = dt;
+        }
         ngModel.$setViewValue(scope.date);
         ngModel.$render();
 
@@ -378,7 +381,7 @@ function ($compile, $parse, $document, $position, dateFilter, datepickerPopupCon
 
       element.bind('input change keyup', function() {
         scope.$apply(function() {
-          updateCalendar();
+          scope.date = ngModel.$modelValue;
         });
       });
 
@@ -386,14 +389,8 @@ function ($compile, $parse, $document, $position, dateFilter, datepickerPopupCon
       ngModel.$render = function() {
         var date = ngModel.$viewValue ? dateFilter(ngModel.$viewValue, dateFormat) : '';
         element.val(date);
-
-        updateCalendar();
-      };
-
-      function updateCalendar() {
         scope.date = ngModel.$modelValue;
-        updatePosition();
-      }
+      };
 
       function addWatchableAttribute(attribute, scopeProperty, datepickerAttribute) {
         if (attribute) {
@@ -449,13 +446,11 @@ function ($compile, $parse, $document, $position, dateFilter, datepickerPopupCon
         }
       });
 
-      var $setModelValue = $parse(attrs.ngModel).assign;
-
       scope.today = function() {
-        $setModelValue(originalScope, new Date());
+        scope.dateSelection(new Date());
       };
       scope.clear = function() {
-        $setModelValue(originalScope, null);
+        scope.dateSelection(null);
       };
 
       var $popup = $compile(popupEl)(scope);

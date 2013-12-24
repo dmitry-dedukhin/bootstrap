@@ -96,14 +96,14 @@ angular.module( 'ui.bootstrap.tooltip', [ 'ui.bootstrap.position', 'ui.bootstrap
       var startSym = $interpolate.startSymbol();
       var endSym = $interpolate.endSymbol();
       var template = 
-        '<'+ directiveName +'-popup '+
+        '<div '+ directiveName +'-popup '+
           'title="'+startSym+'tt_title'+endSym+'" '+
           'content="'+startSym+'tt_content'+endSym+'" '+
           'placement="'+startSym+'tt_placement'+endSym+'" '+
           'animation="tt_animation" '+
           'is-open="tt_isOpen"'+
           '>'+
-        '</'+ directiveName +'-popup>';
+        '</div>';
 
       return {
         restrict: 'EA',
@@ -112,7 +112,6 @@ angular.module( 'ui.bootstrap.tooltip', [ 'ui.bootstrap.position', 'ui.bootstrap
           var tooltip = $compile( template )( scope );
           var transitionTimeout;
           var popupTimeout;
-          var $body = $document.find( 'body' );
           var appendToBody = angular.isDefined( options.appendToBody ) ? options.appendToBody : false;
           var triggers = getTriggers( undefined );
           var hasRegisteredTriggers = false;
@@ -172,7 +171,7 @@ angular.module( 'ui.bootstrap.tooltip', [ 'ui.bootstrap.position', 'ui.bootstrap
             // Now we add it to the DOM because need some info about it. But it's not 
             // visible yet anyway.
             if ( appendToBody ) {
-                $body.append( tooltip );
+                $document.find( 'body' ).append( tooltip );
             } else {
               element.after( tooltip );
             }
@@ -247,12 +246,10 @@ angular.module( 'ui.bootstrap.tooltip', [ 'ui.bootstrap.position', 'ui.bootstrap
            * Observe the relevant attributes.
            */
           attrs.$observe( type, function ( val ) {
-            if (val) {
-              scope.tt_content = val;
-            } else {
-              if ( scope.tt_isOpen ) {
-                hide();
-              }
+            scope.tt_content = val;
+
+            if (!val && scope.tt_isOpen ) {
+              hide();
             }
           });
 
@@ -273,12 +270,15 @@ angular.module( 'ui.bootstrap.tooltip', [ 'ui.bootstrap.position', 'ui.bootstrap
             scope.tt_popupDelay = ! isNaN(delay) ? delay : options.popupDelay;
           });
 
-          attrs.$observe( prefix+'Trigger', function ( val ) {
-
+          var unregisterTriggers = function() {
             if (hasRegisteredTriggers) {
               element.unbind( triggers.show, showTooltipBind );
               element.unbind( triggers.hide, hideTooltipBind );
             }
+          };
+
+          attrs.$observe( prefix+'Trigger', function ( val ) {
+            unregisterTriggers();
 
             triggers = getTriggers( val );
 
@@ -309,11 +309,12 @@ angular.module( 'ui.bootstrap.tooltip', [ 'ui.bootstrap.position', 'ui.bootstrap
 
           // Make sure tooltip is destroyed and removed.
           scope.$on('$destroy', function onDestroyTooltip() {
+            $timeout.cancel( transitionTimeout );
             $timeout.cancel( popupTimeout );
+            unregisterTriggers();
             tooltip.remove();
             tooltip.unbind();
             tooltip = null;
-            $body = null;
           });
         }
       };
@@ -323,7 +324,7 @@ angular.module( 'ui.bootstrap.tooltip', [ 'ui.bootstrap.position', 'ui.bootstrap
 
 .directive( 'tooltipPopup', function () {
   return {
-    restrict: 'E',
+    restrict: 'EA',
     replace: true,
     scope: { content: '@', placement: '@', animation: '&', isOpen: '&' },
     templateUrl: 'template/tooltip/tooltip-popup.html'
@@ -336,7 +337,7 @@ angular.module( 'ui.bootstrap.tooltip', [ 'ui.bootstrap.position', 'ui.bootstrap
 
 .directive( 'tooltipHtmlUnsafePopup', function () {
   return {
-    restrict: 'E',
+    restrict: 'EA',
     replace: true,
     scope: { content: '@', placement: '@', animation: '&', isOpen: '&' },
     templateUrl: 'template/tooltip/tooltip-html-unsafe-popup.html'

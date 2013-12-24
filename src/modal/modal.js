@@ -62,7 +62,9 @@ angular.module('ui.bootstrap.modal', [])
       restrict: 'EA',
       replace: true,
       templateUrl: 'template/modal/backdrop.html',
-      link: function (scope, element, attrs) {
+      link: function (scope) {
+
+        scope.animate = false;
 
         //trigger CSS transitions
         $timeout(function () {
@@ -93,8 +95,11 @@ angular.module('ui.bootstrap.modal', [])
       link: function (scope, element, attrs) {
         scope.windowClass = attrs.windowClass || '';
 
-        //trigger CSS transitions
+        // focus a freshly-opened modal
+        element[0].focus();
+
         $timeout(function () {
+          // trigger CSS transitions
           scope.animate = true;
         });
       }
@@ -104,9 +109,10 @@ angular.module('ui.bootstrap.modal', [])
   .factory('$modalStack', ['$document', '$compile', '$rootScope', '$$stackedMap',
     function ($document, $compile, $rootScope, $$stackedMap) {
 
+      var OPENED_MODAL_CLASS = 'modal-open';
+
       var backdropjqLiteEl, backdropDomEl;
       var backdropScope = $rootScope.$new(true);
-      var body = $document.find('body').eq(0);
       var openedWindows = $$stackedMap.createNew();
       var $modalStack = {};
 
@@ -127,6 +133,7 @@ angular.module('ui.bootstrap.modal', [])
 
       function removeModalWindow(modalInstance) {
 
+        var body = $document.find('body').eq(0);
         var modalWindow = openedWindows.get(modalInstance).value;
 
         //clean up the stack
@@ -134,6 +141,7 @@ angular.module('ui.bootstrap.modal', [])
 
         //remove window DOM element
         modalWindow.modalDomEl.remove();
+        body.toggleClass(OPENED_MODAL_CLASS, openedWindows.length() > 0);
 
         //remove backdrop if no longer needed
         if (backdropDomEl && backdropIndex() == -1) {
@@ -166,7 +174,9 @@ angular.module('ui.bootstrap.modal', [])
           backdrop: modal.backdrop,
           keyboard: modal.keyboard
         });
-          
+
+        var body = $document.find('body').eq(0);
+
         if (backdropIndex() >= 0 && !backdropDomEl) {
             backdropjqLiteEl = angular.element('<div modal-backdrop></div>');
             backdropDomEl = $compile(backdropjqLiteEl)(backdropScope);
@@ -181,7 +191,7 @@ angular.module('ui.bootstrap.modal', [])
         var modalDomEl = $compile(angularDomEl)(modal.scope);
         openedWindows.top().value.modalDomEl = modalDomEl;
         body.append(modalDomEl);
-       
+        body.addClass(OPENED_MODAL_CLASS);
       };
 
       $modalStack.close = function (modalInstance, result) {
