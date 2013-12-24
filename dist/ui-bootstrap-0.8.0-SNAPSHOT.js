@@ -304,18 +304,22 @@ angular.module('ui.bootstrap.accordion', ['ui.bootstrap.collapse'])
   };
 });
 
-angular.module("ui.bootstrap.alert", []).directive('alert', function () {
+angular.module("ui.bootstrap.alert", [])
+
+.controller('AlertController', ['$scope', '$attrs', function ($scope, $attrs) {
+  $scope.closeable = 'close' in $attrs;
+}])
+
+.directive('alert', function () {
   return {
     restrict:'EA',
+    controller:'AlertController',
     templateUrl:'template/alert/alert.html',
     transclude:true,
     replace:true,
     scope: {
       type: '=',
       close: '&'
-    },
-    link: function(scope, iElement, iAttrs) {
-      scope.closeable = "close" in iAttrs;
     }
   };
 });
@@ -337,22 +341,26 @@ angular.module('ui.bootstrap.buttons', [])
   toggleEvent: 'click'
 })
 
-.directive('btnRadio', ['buttonConfig', function (buttonConfig) {
-  var activeClass = buttonConfig.activeClass || 'active';
-  var toggleEvent = buttonConfig.toggleEvent || 'click';
+.controller('ButtonsController', ['buttonConfig', function(buttonConfig) {
+  this.activeClass = buttonConfig.activeClass || 'active';
+  this.toggleEvent = buttonConfig.toggleEvent || 'click';
+}])
 
+.directive('btnRadio', function () {
   return {
-    require: 'ngModel',
-    link: function (scope, element, attrs, ngModelCtrl) {
+    require: ['btnRadio', 'ngModel'],
+    controller: 'ButtonsController',
+    link: function (scope, element, attrs, ctrls) {
+      var buttonsCtrl = ctrls[0], ngModelCtrl = ctrls[1];
 
       //model -> UI
       ngModelCtrl.$render = function () {
-        element.toggleClass(activeClass, angular.equals(ngModelCtrl.$modelValue, scope.$eval(attrs.btnRadio)));
+        element.toggleClass(buttonsCtrl.activeClass, angular.equals(ngModelCtrl.$modelValue, scope.$eval(attrs.btnRadio)));
       };
 
       //ui->model
-      element.bind(toggleEvent, function () {
-        if (!element.hasClass(activeClass)) {
+      element.bind(buttonsCtrl.toggleEvent, function () {
+        if (!element.hasClass(buttonsCtrl.activeClass)) {
           scope.$apply(function () {
             ngModelCtrl.$setViewValue(scope.$eval(attrs.btnRadio));
             ngModelCtrl.$render();
@@ -361,41 +369,43 @@ angular.module('ui.bootstrap.buttons', [])
       });
     }
   };
-}])
+})
 
-.directive('btnCheckbox', ['buttonConfig', function (buttonConfig) {
-  var activeClass = buttonConfig.activeClass || 'active';
-  var toggleEvent = buttonConfig.toggleEvent || 'click';
-
+.directive('btnCheckbox', function () {
   return {
-    require: 'ngModel',
-    link: function (scope, element, attrs, ngModelCtrl) {
+    require: ['btnCheckbox', 'ngModel'],
+    controller: 'ButtonsController',
+    link: function (scope, element, attrs, ctrls) {
+      var buttonsCtrl = ctrls[0], ngModelCtrl = ctrls[1];
 
       function getTrueValue() {
-        var trueValue = scope.$eval(attrs.btnCheckboxTrue);
-        return angular.isDefined(trueValue) ? trueValue : true;
+        return getCheckboxValue(attrs.btnCheckboxTrue, true);
       }
 
       function getFalseValue() {
-        var falseValue = scope.$eval(attrs.btnCheckboxFalse);
-        return angular.isDefined(falseValue) ? falseValue : false;
+        return getCheckboxValue(attrs.btnCheckboxFalse, false);
+      }
+      
+      function getCheckboxValue(attributeValue, defaultValue) {
+        var val = scope.$eval(attributeValue);
+        return angular.isDefined(val) ? val : defaultValue;
       }
 
       //model -> UI
       ngModelCtrl.$render = function () {
-        element.toggleClass(activeClass, angular.equals(ngModelCtrl.$modelValue, getTrueValue()));
+        element.toggleClass(buttonsCtrl.activeClass, angular.equals(ngModelCtrl.$modelValue, getTrueValue()));
       };
 
       //ui->model
-      element.bind(toggleEvent, function () {
+      element.bind(buttonsCtrl.toggleEvent, function () {
         scope.$apply(function () {
-          ngModelCtrl.$setViewValue(element.hasClass(activeClass) ? getFalseValue() : getTrueValue());
+          ngModelCtrl.$setViewValue(element.hasClass(buttonsCtrl.activeClass) ? getFalseValue() : getTrueValue());
           ngModelCtrl.$render();
         });
       });
     }
   };
-}]);
+});
 
 /**
 * @ngdoc overview
@@ -1029,7 +1039,7 @@ angular.module('ui.bootstrap.datepicker', ['ui.bootstrap.position'])
 
       scope.select = function( date ) {
         if ( mode === 0 ) {
-          var dt = new Date( ngModel.$modelValue );
+          var dt = ngModel.$modelValue ? new Date( ngModel.$modelValue ) : new Date(0, 0, 0, 0, 0, 0, 0);
           dt.setFullYear( date.getFullYear(), date.getMonth(), date.getDate() );
           ngModel.$setViewValue( dt );
           refill( true );
@@ -1179,7 +1189,10 @@ function ($compile, $parse, $document, $position, dateFilter, datepickerPopupCon
       ngModel.$parsers.unshift(parseDate);
 
       // Inner change
-      scope.dateSelection = function() {
+      scope.dateSelection = function(dt) {
+        if (angular.isDefined(dt)) {
+          scope.date = dt;
+        }
         ngModel.$setViewValue(scope.date);
         ngModel.$render();
 
@@ -1190,7 +1203,7 @@ function ($compile, $parse, $document, $position, dateFilter, datepickerPopupCon
 
       element.bind('input change keyup', function() {
         scope.$apply(function() {
-          updateCalendar();
+          scope.date = ngModel.$modelValue;
         });
       });
 
@@ -1198,14 +1211,8 @@ function ($compile, $parse, $document, $position, dateFilter, datepickerPopupCon
       ngModel.$render = function() {
         var date = ngModel.$viewValue ? dateFilter(ngModel.$viewValue, dateFormat) : '';
         element.val(date);
-
-        updateCalendar();
-      };
-
-      function updateCalendar() {
         scope.date = ngModel.$modelValue;
-        updatePosition();
-      }
+      };
 
       function addWatchableAttribute(attribute, scopeProperty, datepickerAttribute) {
         if (attribute) {
@@ -1261,13 +1268,11 @@ function ($compile, $parse, $document, $position, dateFilter, datepickerPopupCon
         }
       });
 
-      var $setModelValue = $parse(attrs.ngModel).assign;
-
       scope.today = function() {
-        $setModelValue(originalScope, new Date());
+        scope.dateSelection(new Date());
       };
       scope.clear = function() {
-        $setModelValue(originalScope, null);
+        scope.dateSelection(null);
       };
 
       var $popup = $compile(popupEl)(scope);
@@ -1412,7 +1417,9 @@ angular.module('ui.bootstrap.modal', [])
       restrict: 'EA',
       replace: true,
       templateUrl: 'template/modal/backdrop.html',
-      link: function (scope, element, attrs) {
+      link: function (scope) {
+
+        scope.animate = false;
 
         //trigger CSS transitions
         $timeout(function () {
@@ -1443,8 +1450,11 @@ angular.module('ui.bootstrap.modal', [])
       link: function (scope, element, attrs) {
         scope.windowClass = attrs.windowClass || '';
 
-        //trigger CSS transitions
+        // focus a freshly-opened modal
+        element[0].focus();
+
         $timeout(function () {
+          // trigger CSS transitions
           scope.animate = true;
         });
       }
@@ -1454,9 +1464,10 @@ angular.module('ui.bootstrap.modal', [])
   .factory('$modalStack', ['$document', '$compile', '$rootScope', '$$stackedMap',
     function ($document, $compile, $rootScope, $$stackedMap) {
 
+      var OPENED_MODAL_CLASS = 'modal-open';
+
       var backdropjqLiteEl, backdropDomEl;
       var backdropScope = $rootScope.$new(true);
-      var body = $document.find('body').eq(0);
       var openedWindows = $$stackedMap.createNew();
       var $modalStack = {};
 
@@ -1477,6 +1488,7 @@ angular.module('ui.bootstrap.modal', [])
 
       function removeModalWindow(modalInstance) {
 
+        var body = $document.find('body').eq(0);
         var modalWindow = openedWindows.get(modalInstance).value;
 
         //clean up the stack
@@ -1484,6 +1496,7 @@ angular.module('ui.bootstrap.modal', [])
 
         //remove window DOM element
         modalWindow.modalDomEl.remove();
+        body.toggleClass(OPENED_MODAL_CLASS, openedWindows.length() > 0);
 
         //remove backdrop if no longer needed
         if (backdropDomEl && backdropIndex() == -1) {
@@ -1516,7 +1529,9 @@ angular.module('ui.bootstrap.modal', [])
           backdrop: modal.backdrop,
           keyboard: modal.keyboard
         });
-          
+
+        var body = $document.find('body').eq(0);
+
         if (backdropIndex() >= 0 && !backdropDomEl) {
             backdropjqLiteEl = angular.element('<div modal-backdrop></div>');
             backdropDomEl = $compile(backdropjqLiteEl)(backdropScope);
@@ -1531,7 +1546,7 @@ angular.module('ui.bootstrap.modal', [])
         var modalDomEl = $compile(angularDomEl)(modal.scope);
         openedWindows.top().value.modalDomEl = modalDomEl;
         body.append(modalDomEl);
-       
+        body.addClass(OPENED_MODAL_CLASS);
       };
 
       $modalStack.close = function (modalInstance, result) {
@@ -2005,14 +2020,14 @@ angular.module( 'ui.bootstrap.tooltip', [ 'ui.bootstrap.position', 'ui.bootstrap
       var startSym = $interpolate.startSymbol();
       var endSym = $interpolate.endSymbol();
       var template = 
-        '<'+ directiveName +'-popup '+
+        '<div '+ directiveName +'-popup '+
           'title="'+startSym+'tt_title'+endSym+'" '+
           'content="'+startSym+'tt_content'+endSym+'" '+
           'placement="'+startSym+'tt_placement'+endSym+'" '+
           'animation="tt_animation" '+
           'is-open="tt_isOpen"'+
           '>'+
-        '</'+ directiveName +'-popup>';
+        '</div>';
 
       return {
         restrict: 'EA',
@@ -2021,7 +2036,6 @@ angular.module( 'ui.bootstrap.tooltip', [ 'ui.bootstrap.position', 'ui.bootstrap
           var tooltip = $compile( template )( scope );
           var transitionTimeout;
           var popupTimeout;
-          var $body = $document.find( 'body' );
           var appendToBody = angular.isDefined( options.appendToBody ) ? options.appendToBody : false;
           var triggers = getTriggers( undefined );
           var hasRegisteredTriggers = false;
@@ -2081,7 +2095,7 @@ angular.module( 'ui.bootstrap.tooltip', [ 'ui.bootstrap.position', 'ui.bootstrap
             // Now we add it to the DOM because need some info about it. But it's not 
             // visible yet anyway.
             if ( appendToBody ) {
-                $body.append( tooltip );
+                $document.find( 'body' ).append( tooltip );
             } else {
               element.after( tooltip );
             }
@@ -2156,12 +2170,10 @@ angular.module( 'ui.bootstrap.tooltip', [ 'ui.bootstrap.position', 'ui.bootstrap
            * Observe the relevant attributes.
            */
           attrs.$observe( type, function ( val ) {
-            if (val) {
-              scope.tt_content = val;
-            } else {
-              if ( scope.tt_isOpen ) {
-                hide();
-              }
+            scope.tt_content = val;
+
+            if (!val && scope.tt_isOpen ) {
+              hide();
             }
           });
 
@@ -2182,12 +2194,15 @@ angular.module( 'ui.bootstrap.tooltip', [ 'ui.bootstrap.position', 'ui.bootstrap
             scope.tt_popupDelay = ! isNaN(delay) ? delay : options.popupDelay;
           });
 
-          attrs.$observe( prefix+'Trigger', function ( val ) {
-
+          var unregisterTriggers = function() {
             if (hasRegisteredTriggers) {
               element.unbind( triggers.show, showTooltipBind );
               element.unbind( triggers.hide, hideTooltipBind );
             }
+          };
+
+          attrs.$observe( prefix+'Trigger', function ( val ) {
+            unregisterTriggers();
 
             triggers = getTriggers( val );
 
@@ -2218,11 +2233,12 @@ angular.module( 'ui.bootstrap.tooltip', [ 'ui.bootstrap.position', 'ui.bootstrap
 
           // Make sure tooltip is destroyed and removed.
           scope.$on('$destroy', function onDestroyTooltip() {
+            $timeout.cancel( transitionTimeout );
             $timeout.cancel( popupTimeout );
+            unregisterTriggers();
             tooltip.remove();
             tooltip.unbind();
             tooltip = null;
-            $body = null;
           });
         }
       };
@@ -2232,7 +2248,7 @@ angular.module( 'ui.bootstrap.tooltip', [ 'ui.bootstrap.position', 'ui.bootstrap
 
 .directive( 'tooltipPopup', function () {
   return {
-    restrict: 'E',
+    restrict: 'EA',
     replace: true,
     scope: { content: '@', placement: '@', animation: '&', isOpen: '&' },
     templateUrl: 'template/tooltip/tooltip-popup.html'
@@ -2245,7 +2261,7 @@ angular.module( 'ui.bootstrap.tooltip', [ 'ui.bootstrap.position', 'ui.bootstrap
 
 .directive( 'tooltipHtmlUnsafePopup', function () {
   return {
-    restrict: 'E',
+    restrict: 'EA',
     replace: true,
     scope: { content: '@', placement: '@', animation: '&', isOpen: '&' },
     templateUrl: 'template/tooltip/tooltip-html-unsafe-popup.html'
@@ -2460,12 +2476,6 @@ angular.module('ui.bootstrap.rating', [])
 
 angular.module('ui.bootstrap.tabs', [])
 
-.directive('tabs', function() {
-  return function() {
-    throw new Error("The `tabs` directive is deprecated, please migrate to `tabset`. Instructions can be found at http://github.com/angular-ui/bootstrap/tree/master/CHANGELOG.md");
-  };
-})
-
 .controller('TabsetController', ['$scope', function TabsetCtrl($scope) {
   var ctrl = this,
       tabs = ctrl.tabs = $scope.tabs = [];
@@ -2505,8 +2515,6 @@ angular.module('ui.bootstrap.tabs', [])
  * Tabset is the outer container for the tabs directive
  *
  * @param {boolean=} vertical Whether or not to use vertical styling for the tabs.
- * @param {string=} direction  What direction the tabs should be rendered. Available:
- * 'right', 'left', 'below'.
  *
  * @example
 <example module="ui.bootstrap">
@@ -2528,19 +2536,12 @@ angular.module('ui.bootstrap.tabs', [])
     restrict: 'EA',
     transclude: true,
     replace: true,
-    require: '^tabset',
     scope: {},
     controller: 'TabsetController',
     templateUrl: 'template/tabs/tabset.html',
-    compile: function(elm, attrs, transclude) {
-      return function(scope, element, attrs, tabsetCtrl) {
-        scope.vertical = angular.isDefined(attrs.vertical) ? scope.$parent.$eval(attrs.vertical) : false;
-        scope.type = angular.isDefined(attrs.type) ? scope.$parent.$eval(attrs.type) : 'tabs';
-        scope.direction = angular.isDefined(attrs.direction) ? scope.$parent.$eval(attrs.direction) : 'top';
-        scope.tabsAbove = (scope.direction != 'below');
-        tabsetCtrl.$scope = scope;
-        tabsetCtrl.$transcludeFn = transclude;
-      };
+    link: function(scope, element, attrs) {
+      scope.vertical = angular.isDefined(attrs.vertical) ? scope.$parent.$eval(attrs.vertical) : false;
+      scope.type = angular.isDefined(attrs.type) ? scope.$parent.$eval(attrs.type) : 'tabs';
     }
   };
 })
@@ -2745,24 +2746,7 @@ angular.module('ui.bootstrap.tabs', [])
   }
 })
 
-.directive('tabsetTitles', function() {
-  return {
-    restrict: 'A',
-    require: '^tabset',
-    templateUrl: 'template/tabs/tabset-titles.html',
-    replace: true,
-    link: function(scope, elm, attrs, tabsetCtrl) {
-      if (!scope.$eval(attrs.tabsetTitles)) {
-        elm.remove();
-      } else {
-        //now that tabs location has been decided, transclude the tab titles in
-        tabsetCtrl.$transcludeFn(tabsetCtrl.$scope.$parent, function(node) {
-          elm.append(node);
-        });
-      }
-    }
-  };
-});
+;
 
 angular.module('ui.bootstrap.timepicker', [])
 
@@ -3057,6 +3041,8 @@ angular.module('ui.bootstrap.typeahead', ['ui.bootstrap.position', 'ui.bootstrap
 
       var inputFormatter = attrs.typeaheadInputFormatter ? $parse(attrs.typeaheadInputFormatter) : undefined;
 
+      var appendToBody =  attrs.typeaheadAppendToBody ? $parse(attrs.typeaheadAppendToBody) : false;
+
       //INTERNAL VARIABLES
 
       //model setter executed upon match selection
@@ -3120,7 +3106,7 @@ angular.module('ui.bootstrap.typeahead', ['ui.bootstrap.position', 'ui.bootstrap
               //position pop-up with matches - we need to re-calculate its position each time we are opening a window
               //with matches as a pop-up might be absolute-positioned and position of an input might have changed on a page
               //due to other elements being rendered
-              scope.position = $position.position(element);
+              scope.position = appendToBody ? $position.offset(element) : $position.position(element);
               scope.position.top = scope.position.top + element.prop('offsetHeight');
 
             } else {
@@ -3228,9 +3214,6 @@ angular.module('ui.bootstrap.typeahead', ['ui.bootstrap.position', 'ui.bootstrap
 
         //typeahead is open and an "interesting" key was pressed
         if (scope.matches.length === 0 || HOT_KEYS.indexOf(evt.which) === -1) {
-          if (evt.which === 13) {
-            evt.preventDefault();
-          }
           return;
         }
 
@@ -3275,7 +3258,12 @@ angular.module('ui.bootstrap.typeahead', ['ui.bootstrap.position', 'ui.bootstrap
         $document.unbind('click', dismissClickHandler);
       });
 
-      element.after($compile(popUpEl)(scope));
+      var $popup = $compile(popUpEl)(scope);
+      if ( appendToBody ) {
+        $document.find('body').append($popup);
+      } else {
+        element.after($popup);
+      }
     }
   };
 
